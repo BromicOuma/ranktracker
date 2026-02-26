@@ -12,7 +12,7 @@ import pytz
 from streamlit_js_eval import streamlit_js_eval
 
 # Page Configuration
-st.set_page_config(page_title="Model Rank Tracker Pro", layout="wide")
+st.set_page_config(page_title="Model Rank Tracker", layout="wide")
 
 # Custom CSS for high-visibility table
 st.markdown("""
