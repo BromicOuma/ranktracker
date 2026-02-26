@@ -59,7 +59,7 @@ def find_rank_with_viewers(target_name, status_placeholder):
             pass 
 
         global_count = 0
-        for page_num in range(1, 31):
+        for page_num in range(1, 120):
             if not st.session_state.is_running: break
             if page_num % 5 == 0 or page_num == 1:
                 status_placeholder.info(f"Scanning Page {page_num} for {target_name.upper()}")
