@@ -130,7 +130,7 @@ if run_tracker:
                 }
                 st.session_state.history.insert(0, entry) # Most recent at top
                 
-                status_area.success(f"Last Found: {target_input} at {now} (Rank #{result['overall_rank']})")
+                status_area.success(f"Last Found: {target_input} at {now} (Rank #{result['overall_rank']} on Page {result['page']} at Position {result['position']} )")
             else:
                 status_area.warning(f"[{now}] Model not found. Will retry in {interval_input} min.")
                 if "error" in result:
