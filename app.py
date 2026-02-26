@@ -2,7 +2,6 @@ import sys
 import time
 import os
 import pandas as pd
-import matplotlib.pyplot as plt
 from datetime import datetime
 from multiprocessing import Pool, cpu_count
 from selenium import webdriver
