@@ -114,7 +114,7 @@ if st.session_state.is_running and target_input:
                 "TIME": finish_time,
                 "RANK": f"#{current_rank}",
                 "VIEWERS": f"{current_viewers:,}",
-                "LOCATION": f"P{result['page']} P{result['pos']} {trend_html}", 
+                "LOCATION": f"Page {result['page']} Position {result['pos']} {trend_html}", 
                 "RAW_RANK": current_rank,
                 "RAW_VIEWERS": current_viewers
             }
