@@ -7,13 +7,11 @@ from selenium.webdriver.support import expected_conditions as EC
 import time
 from datetime import datetime
 import pandas as pd
-import plotly.graph_objects as go
-from plotly.subplots import make_subplots
 
 # 1. Page Configuration
-st.set_page_config(page_title="Model Rank Tracker Pro", layout="wide", page_icon="📊")
+st.set_page_config(page_title="Model Rank Tracker", layout="wide", page_icon="📝")
 
-# Initialize tracking history
+# Initialize tracking history in session state
 if 'history' not in st.session_state:
     st.session_state.history = []
 
@@ -32,13 +30,11 @@ def find_rank_with_viewers(target_name):
         driver = webdriver.Chrome(options=options)
         driver.get("https://chaturbate.com/?page=1")
         
-        # Bypass Age Verification
         try:
             WebDriverWait(driver, 5).until(EC.element_to_be_clickable((By.ID, "close_entrance_terms"))).click()
         except:
             pass 
 
-        # Get Max Pages
         try:
             last_page_el = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'a[data-paction-name="LastPage"]')))
             max_pages = int(last_page_el.text)
@@ -58,7 +54,6 @@ def find_rank_with_viewers(target_name):
                     user_tag = card.find_element(By.CSS_SELECTOR, 'a[data-testid="room-card-username"]')
                     if user_tag.text.lower().strip() == target_name:
                         try:
-                            # Sanitize viewer count (handling 'k' and decimals)
                             raw_viewers = card.find_element(By.CLASS_NAME, "viewers").text.lower()
                             if 'k' in raw_viewers:
                                 viewer_count = int(float(raw_viewers.replace('k', '')) * 1000)
@@ -95,7 +90,8 @@ with st.sidebar:
     st.header("Search Settings")
     target_input = st.text_input("Model Name:", placeholder="e.g. sara_smoke")
     interval_input = st.number_input("Check Interval (Minutes):", min_value=1, value=5)
-    run_tracker = st.checkbox("Start Tracking")
+    run_tracker = st.button("Start Tracking")
+    stop_tracker = st.button("Stop Tracking")
     
     st.divider()
     if st.button("Clear History"):
@@ -103,72 +99,56 @@ with st.sidebar:
         st.rerun()
 
 # --- Main Dashboard ---
-st.title("📊 Model Performance Dashboard")
+st.title("📝 Model History Log")
 
-if run_tracker and target_input:
-    st.info(f"Tracking **{target_input}** every {interval_input} minute(s).")
-    dashboard_area = st.empty()
-    
-    while run_tracker:
-        result = find_rank_with_viewers(target_input)
-        now = datetime.now().strftime("%H:%M:%S")
+# Create two specific areas that we can update without refreshing the whole page
+status_area = st.empty()
+log_area = st.empty()
+
+if run_tracker:
+    if not target_input:
+        st.error("Please enter a model name in the sidebar.")
+    else:
+        st.session_state.is_running = True
         
-        with dashboard_area.container():
+        while st.session_state.get('is_running', False):
+            now = datetime.now().strftime("%H:%M:%S")
+            
+            # 1. Update status to 'Searching'
+            status_area.info(f"🔎 Currently searching for **{target_input}**... (Last check: {now})")
+            
+            result = find_rank_with_viewers(target_input)
+            
             if result.get("found"):
-                # Append to history
-                st.session_state.history.append({
-                    "Time": now, 
-                    "Overall Rank": result['overall_rank'], 
-                    "Viewers": result['viewers'], 
+                # Add to history
+                entry = {
+                    "Time": datetime.now().strftime("%H:%M:%S"), 
+                    "Overall Rank": f"#{result['overall_rank']}", 
+                    "Viewers": f"{result['viewers']:,}", 
                     "Page": result['page'],
                     "Page Position": result['position']
-                })
+                }
+                st.session_state.history.insert(0, entry) # Most recent at top
                 
-                # Metrics
-                st.success(f"### Update for {target_input} at {now}")
-                m1, m2, m3, m4 = st.columns(4)
-                m1.metric("Overall Rank", f"#{result['overall_rank']}")
-                m2.metric("Viewers", f"{result['viewers']:,}")
-                m3.metric("Page", f"Page {result['page']}")
-                m4.metric("Position on Page", f"Pos {result['position']}")
-                
-                # Plotly Dual-Axis Graph
-                df = pd.DataFrame(st.session_state.history)
-                
-                fig = make_subplots(specs=[[{"secondary_y": True}]])
-
-                # Viewers Trace
-                fig.add_trace(
-                    go.Scatter(x=df["Time"], y=df["Viewers"], name="Viewers", 
-                               mode='lines+markers', line=dict(color="#00CC96")),
-                    secondary_y=False,
-                )
-
-                # Rank Trace
-                fig.add_trace(
-                    go.Scatter(x=df["Time"], y=df["Overall Rank"], name="Overall Rank", 
-                               mode='lines+markers', line=dict(color="#EF553B"),
-                               customdata=df[['Page', 'Page Position']],
-                               hovertemplate="Rank: #%{y}<br>Page: %{customdata[0]}<br>Pos: %{customdata[1]}<extra></extra>"),
-                    secondary_y=True,
-                )
-
-                fig.update_yaxes(title_text="Viewers", secondary_y=False)
-                fig.update_yaxes(title_text="Overall Rank", secondary_y=True, autorange="reversed")
-                fig.update_layout(title="Viewer & Rank Trends (Hover for Page details)", hovermode="x unified")
-                
-                st.plotly_chart(fig, use_container_width=True)
-
-                st.subheader("Session History Log")
-                st.dataframe(df.iloc[::-1], use_container_width=True)
+                status_area.success(f"✅ Last Found: {target_input} at {now} (Rank #{result['overall_rank']})")
             else:
-                st.warning(f"[{now}] Model not found.")
+                status_area.warning(f"⚠️ [{now}] Model not found. Will retry in {interval_input} min.")
                 if "error" in result:
-                    st.error(f"Error: {result['error']}")
-                if st.session_state.history:
-                    st.dataframe(pd.DataFrame(st.session_state.history).iloc[::-1], use_container_width=True)
+                    st.error(f"Technical Error: {result['error']}")
 
-        time.sleep(interval_input * 60)
-        st.rerun()
+            # 2. Update the History Table without refreshing the page
+            with log_area.container():
+                if st.session_state.history:
+                    st.subheader("Data Log")
+                    st.table(pd.DataFrame(st.session_state.history))
+            
+            # Sleep until next check
+            time.sleep(interval_input * 60)
+
+elif not st.session_state.history:
+    st.info("👈 Enter a name and click 'Start Tracking' to begin recording data.")
 else:
-    st.info("Enter a name and toggle 'Start Tracking' in the sidebar.")
+    # If the tracker isn't running but we have history, keep showing the log
+    with log_area.container():
+        st.subheader("Data Log (Stopped)")
+        st.table(pd.DataFrame(st.session_state.history))
