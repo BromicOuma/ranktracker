@@ -13,11 +13,11 @@ from streamlit_js_eval import streamlit_js_eval
 # 1. Page Configuration
 st.set_page_config(page_title="Model Rank Tracker", layout="wide", page_icon="📝")
 
-# Custom CSS to make the success message and headers BOLD and BIG
+# Custom CSS for Bold and Big Text
 st.markdown("""
     <style>
-    .big-font { font-size:24px !important; font-weight: bold; }
-    .stAlert { border: 2px solid #00cc96; }
+    .big-bold { font-size:22px !important; font-weight: bold; color: #1E1E1E; }
+    .status-text { font-size:18px !important; font-weight: 500; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -87,18 +87,18 @@ def find_rank_with_viewers(target_name):
 
 # --- Sidebar ---
 with st.sidebar:
-    st.header("**SETTINGS**")
-    st.write(f"Timezone: **{browser_tz_name if browser_tz_name else 'Detecting...'}**")
+    st.header("⚙️ **SETTINGS**")
+    st.write(f"🌐 Timezone: **{browser_tz_name if browser_tz_name else 'Detecting...'}**")
     target_input = st.text_input("Model Name:", placeholder="e.g. sara_smoke")
     interval_input = st.number_input("Interval (Minutes):", min_value=1, value=5)
     
-    start_tracking = st.button("**START TRACKING**")
-    if st.button(" **CLEAR HISTORY**"):
+    start_tracking = st.button("🚀 **START TRACKING**")
+    if st.button("🗑️ **CLEAR HISTORY**"):
         st.session_state.history = []
         st.rerun()
 
 # --- Main Dashboard ---
-st.title("**SEARCH & RANK MODEL**")
+st.title("🔍 **SEARCH & RANK MODEL**")
 
 status_area = st.empty()
 log_area = st.empty()
@@ -108,7 +108,7 @@ if start_tracking and target_input:
     
     while st.session_state.get('is_running', True):
         current_local = datetime.now(user_tz).strftime("%H:%M:%S")
-        status_area.info(f"**Currently searching for {target_input.upper()}...** (Local Time: {current_local})")
+        status_area.info(f"🔎 **Searching for {target_input.upper()}...** (Local Time: {current_local})")
         
         result = find_rank_with_viewers(target_input)
         
@@ -122,19 +122,18 @@ if start_tracking and target_input:
             }
             st.session_state.history.insert(0, entry)
             
-            # --- BOLD & BIG SUCCESS MESSAGE ---
-            status_area.success(f"### **{target_input.upper()} FOUND!** \n\n **POSITION {result['pos']} | PAGE {result['page']} | OVERALL RANK: #{result['rank']}**")
+            # --- FIXED SUCCESS MESSAGE (Bold & Clear) ---
+            status_area.success(f"### ✅ **{target_input.upper()} FOUND!** \n\n **POSITION {result['pos']} | PAGE {result['page']} | OVERALL RANK: #{result['rank']}**")
         else:
-            status_area.warning(f"**[{current_local}] {target_input.upper()} NOT FOUND.** Retrying in {interval_input} min.")
+            status_area.warning(f"⚠️ **[{current_local}] {target_input.upper()} NOT FOUND.** Retrying in {interval_input} min.")
 
         # Render Log Table
         if st.session_state.history:
             df = pd.DataFrame(st.session_state.history)
             with log_area.container():
-                st.markdown(f"### **HISTORY LOG ({browser_tz_name})**")
-                # Using st.table for a clean, bold look
+                st.markdown(f"### 📊 **HISTORY LOG ({browser_tz_name})**")
                 st.table(df)
         
         time.sleep(interval_input * 60)
 else:
-    st.info("**Enter a name and click 'Start Tracking' in the sidebar.**")
+    st.info("👈 **Enter a name and click 'Start Tracking' in the sidebar.**")
