@@ -130,7 +130,7 @@ if start_tracking and target_input:
                 "Location": f"Page {result['page']}, Pos {result['pos']}"
             }
             st.session_state.history.insert(0, entry)
-            status_area.success(f"Found {target_input} at {datetime.now(user_tz).strftime('%H:%M:%S')}")
+            status_area.success(f" {target_input} at positon {Location.result['pos']} page {Location.{result['page']}}" overall rank is {result['rank'] )
         else:
             status_area.warning(f"[{datetime.now(user_tz).strftime('%H:%M:%S')}] Model not found.")
             if "error" in result:
@@ -144,7 +144,7 @@ if start_tracking and target_input:
             df['Local Time'] = df['UTC_Time'].apply(lambda x: x.astimezone(user_tz).strftime("%H:%M:%S"))
             
             with log_area.container():
-                st.subheader(f"History Log ({browser_tz_name})")
+                st.subheader(f"History Log")
                 st.table(df[['Local Time', 'Overall Rank', 'Viewers', 'Location']])
         
         time.sleep(interval_input * 60)
