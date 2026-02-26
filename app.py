@@ -10,13 +10,7 @@ from datetime import datetime
 import pandas as pd
 import pytz
 from streamlit_js_eval import streamlit_js_eval
-st.markdown("""
-    <style>
-    .styles_viewerBadge__1yB5_, .viewerBadge_link__1S137, .viewerBadge_text__1JaDK {
-        display: none;
-    }
-    </style>
-""", unsafe_allow_html=True)
+
 # Page Configuration
 st.set_page_config(page_title="Model Rank Tracker", layout="wide")
 
@@ -26,6 +20,9 @@ st.markdown("""
     table { width: 100% !important; font-family: sans-serif; border-collapse: collapse; }
     th { background-color: #f0f2f6; color: #31333F; font-weight: bold; padding: 10px; text-align: left; }
     td { padding: 10px; border-bottom: 1px solid #e6e9ef; font-size: 18px; font-weight: bold; }
+    .styles_viewerBadge__1yB5_, .viewerBadge_link__1S137, .viewerBadge_text__1JaDK {
+        display: none;
+    }
     </style>
     """, unsafe_allow_html=True)
 
