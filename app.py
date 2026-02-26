@@ -7,9 +7,11 @@ from selenium.webdriver.support import expected_conditions as EC
 import time
 from datetime import datetime
 import pandas as pd
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 
 # 1. Page Configuration
-st.set_page_config(page_title="Model Tracker Pro", layout="wide", page_icon="📊")
+st.set_page_config(page_title="Model Rank Tracker Pro", layout="wide", page_icon="📊")
 
 # Initialize tracking history
 if 'history' not in st.session_state:
@@ -30,16 +32,18 @@ def find_rank_with_viewers(target_name):
         driver = webdriver.Chrome(options=options)
         driver.get("https://chaturbate.com/?page=1")
         
+        # Bypass Age Verification
         try:
             WebDriverWait(driver, 5).until(EC.element_to_be_clickable((By.ID, "close_entrance_terms"))).click()
         except:
             pass 
 
+        # Get Max Pages
         try:
             last_page_el = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'a[data-paction-name="LastPage"]')))
             max_pages = int(last_page_el.text)
         except:
-            max_pages = 50
+            max_pages = 50 
 
         global_count = 0
         for page_num in range(1, max_pages + 1):
@@ -54,9 +58,12 @@ def find_rank_with_viewers(target_name):
                     user_tag = card.find_element(By.CSS_SELECTOR, 'a[data-testid="room-card-username"]')
                     if user_tag.text.lower().strip() == target_name:
                         try:
-                            # Clean viewer string (e.g., "1.2k" or "500") to integer
-                            raw_viewers = card.find_element(By.CLASS_NAME, "viewers").text.lower().replace('k', '000').replace('.', '')
-                            viewer_count = int(''.join(filter(str.isdigit, raw_viewers)))
+                            # Sanitize viewer count (handling 'k' and decimals)
+                            raw_viewers = card.find_element(By.CLASS_NAME, "viewers").text.lower()
+                            if 'k' in raw_viewers:
+                                viewer_count = int(float(raw_viewers.replace('k', '')) * 1000)
+                            else:
+                                viewer_count = int(''.join(filter(str.isdigit, raw_viewers)))
                         except:
                             viewer_count = 0
                         
@@ -90,12 +97,13 @@ with st.sidebar:
     interval_input = st.number_input("Check Interval (Minutes):", min_value=1, value=5)
     run_tracker = st.checkbox("Start Tracking")
     
+    st.divider()
     if st.button("Clear History"):
         st.session_state.history = []
         st.rerun()
 
-# --- Dashboard Layout ---
-st.title("Chaturbate Rank Dashboard")
+# --- Main Dashboard ---
+st.title("📊 Model Performance Dashboard")
 
 if run_tracker and target_input:
     st.info(f"Tracking **{target_input}** every {interval_input} minute(s).")
@@ -107,39 +115,60 @@ if run_tracker and target_input:
         
         with dashboard_area.container():
             if result.get("found"):
-                # Save to history for graphing
+                # Append to history
                 st.session_state.history.append({
                     "Time": now, 
                     "Overall Rank": result['overall_rank'], 
                     "Viewers": result['viewers'], 
                     "Page": result['page'],
-                    "Page Position": result['position'],
-                    "Location": f"P{result['page']} Pos{result['position']}"
+                    "Page Position": result['position']
                 })
                 
-                st.success(f"### Found: {target_input} at {now}")
-                c1, c2, c3, c4 = st.columns(4)
-                c1.metric("Overall Rank", f"#{result['overall_rank']}")
-                c2.metric("Viewers", f"{result['viewers']:,}")
-                c3.metric("Page", f"Page {result['page']}")
-                c4.metric("Page Position", f"Pos {result['position']}")
+                # Metrics
+                st.success(f"### Update for {target_input} at {now}")
+                m1, m2, m3, m4 = st.columns(4)
+                m1.metric("Overall Rank", f"#{result['overall_rank']}")
+                m2.metric("Viewers", f"{result['viewers']:,}")
+                m3.metric("Page", f"Page {result['page']}")
+                m4.metric("Position on Page", f"Pos {result['position']}")
                 
-                # --- VISUALIZATION ---
+                # Plotly Dual-Axis Graph
                 df = pd.DataFrame(st.session_state.history)
                 
-                st.divider()
-                st.subheader("Viewer Trends")
-                # Graphing Viewer Count over time
-                st.line_chart(df.set_index("Time")[["Viewers"]])
+                fig = make_subplots(specs=[[{"secondary_y": True}]])
 
-                st.subheader("Rank History (Recent First)")
+                # Viewers Trace
+                fig.add_trace(
+                    go.Scatter(x=df["Time"], y=df["Viewers"], name="Viewers", 
+                               mode='lines+markers', line=dict(color="#00CC96")),
+                    secondary_y=False,
+                )
+
+                # Rank Trace
+                fig.add_trace(
+                    go.Scatter(x=df["Time"], y=df["Overall Rank"], name="Overall Rank", 
+                               mode='lines+markers', line=dict(color="#EF553B"),
+                               customdata=df[['Page', 'Page Position']],
+                               hovertemplate="Rank: #%{y}<br>Page: %{customdata[0]}<br>Pos: %{customdata[1]}<extra></extra>"),
+                    secondary_y=True,
+                )
+
+                fig.update_yaxes(title_text="Viewers", secondary_y=False)
+                fig.update_yaxes(title_text="Overall Rank", secondary_y=True, autorange="reversed")
+                fig.update_layout(title="Viewer & Rank Trends (Hover for Page details)", hovermode="x unified")
+                
+                st.plotly_chart(fig, use_container_width=True)
+
+                st.subheader("Session History Log")
                 st.dataframe(df.iloc[::-1], use_container_width=True)
             else:
                 st.warning(f"[{now}] Model not found.")
                 if "error" in result:
                     st.error(f"Error: {result['error']}")
+                if st.session_state.history:
+                    st.dataframe(pd.DataFrame(st.session_state.history).iloc[::-1], use_container_width=True)
 
         time.sleep(interval_input * 60)
         st.rerun()
 else:
-    st.info(" Set model name and interval in the sidebar, then toggle 'Start Tracking'.")
+    st.info("Enter a name and toggle 'Start Tracking' in the sidebar.")
