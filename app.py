@@ -9,39 +9,42 @@ import time
 from datetime import datetime
 import pandas as pd
 
-# Page Configuration
-st.set_page_config(page_title="Model Tracker Pro", layout="wide")
+# Page Setup
+st.set_page_config(page_title="Model Rank Tracker", layout="wide")
 
 st.title("📊 Model Rank & Viewer Tracker")
+st.markdown("This tool scans pages to find a specific model's rank and viewer count.")
 
-# Initialize session state for history
+# Initialize History in session state
 if 'history' not in st.session_state:
     st.session_state.history = []
 
 def find_rank_with_viewers(target_name):
     target_name = target_name.lower().strip()
     
+    # Setup Chrome Options for Cloud Linux
     chrome_options = Options()
     chrome_options.add_argument("--headless")
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage")
     chrome_options.add_argument("--disable-gpu")
+    chrome_options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
     
-    # Specific paths for Streamlit Cloud Linux environment
-    chrome_options.binary_location = "/usr/bin/chromium-browser"
+    # Paths for Debian Bookworm (Streamlit Cloud)
+    chrome_options.binary_location = "/usr/bin/chromium"
     service = Service("/usr/bin/chromedriver")
 
     try:
         driver = webdriver.Chrome(service=service, options=chrome_options)
         driver.get("https://chaturbate.com/?page=1")
         
-        # 1. Close overlay
+        # Bypass Age Verification
         try:
             WebDriverWait(driver, 5).until(EC.element_to_be_clickable((By.ID, "close_entrance_terms"))).click()
         except:
             pass 
 
-        # 2. Get Max Pages
+        # Get Dynamic Max Pages
         try:
             last_page_el = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'a[data-paction-name="LastPage"]')))
             max_pages = int(last_page_el.text)
@@ -53,6 +56,7 @@ def find_rank_with_viewers(target_name):
             if page_num > 1:
                 driver.get(f"https://chaturbate.com/?page={page_num}")
             
+            # Wait for content
             WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'li.roomCard')))
             room_cards = driver.find_elements(By.CSS_SELECTOR, 'li.roomCard')
 
@@ -70,56 +74,59 @@ def find_rank_with_viewers(target_name):
                         return {"found": True, "page": page_num, "rank": rank, "viewers": viewer_text}
                 except:
                     continue 
+            
             global_count += len(room_cards)
             
         driver.quit()
     except Exception as e:
+        if 'driver' in locals(): driver.quit()
         return {"found": False, "error": str(e)}
     
     return {"found": False}
 
-# --- Sidebar Inputs ---
+# --- Sidebar ---
 with st.sidebar:
-    st.header("Settings")
-    target = st.text_input("Model Name", placeholder="e.g. sara_smoke")
-    interval = st.number_input("Check every (minutes)", min_value=1, value=5)
-    run_tracker = st.checkbox("Run Tracker")
+    st.header("Search Settings")
+    target = st.text_input("Enter Model Name:", placeholder="e.g. sara_smoke")
+    interval = st.number_input("Check Interval (Minutes):", min_value=1, value=5)
+    run_tracker = st.checkbox("Start Tracking")
+    
+    if st.button("Clear History"):
+        st.session_state.history = []
+        st.rerun()
 
-# --- Main Logic ---
+# --- Main Dashboard ---
 if run_tracker and target:
-    st.info(f"Tracking **{target}** every {interval} minute(s).")
-    placeholder = st.empty()
+    st.info(f"Checking for **{target}** every {interval} minute(s).")
+    dashboard_placeholder = st.empty()
     
     while run_tracker:
         result = find_rank_with_viewers(target)
-        timestamp = datetime.now().strftime("%H:%M:%S")
+        now = datetime.now().strftime("%H:%M:%S")
         
         if result.get("found"):
-            # Update history
-            new_data = {
-                "Time": timestamp, 
-                "Rank": result['rank'], 
-                "Viewers": result['viewers'], 
-                "Page": result['page']
-            }
-            st.session_state.history.insert(0, new_data)
+            # Log result
+            entry = {"Time": now, "Rank": result['rank'], "Viewers": result['viewers'], "Page": result['page']}
+            st.session_state.history.insert(0, entry)
             
-            with placeholder.container():
-                st.success(f"### Latest Update: {timestamp}")
-                c1, c2, c3 = st.columns(3)
-                c1.metric("Current Rank", f"#{result['rank']}")
-                c2.metric("Viewers", result['viewers'])
-                c3.metric("Page", result['page'])
+            with dashboard_placeholder.container():
+                st.success(f"### Update: {now}")
+                col1, col2, col3 = st.columns(3)
+                col1.metric("Current Rank", f"#{result['rank']}")
+                col2.metric("Viewers", result['viewers'])
+                col3.metric("Page Location", result['page'])
                 
-                st.divider()
-                st.subheader("History Log")
-                st.table(pd.DataFrame(st.session_state.history))
+                st.subheader("Recent Activity Log")
+                st.dataframe(pd.DataFrame(st.session_state.history), use_container_width=True)
         else:
-            st.warning(f"[{timestamp}] Model not found or error occurred.")
-            if "error" in result:
-                st.error(result["error"])
+            with dashboard_placeholder.container():
+                st.warning(f"[{now}] Model not found.")
+                if "error" in result:
+                    st.error(f"System Error: {result['error']}")
+                if st.session_state.history:
+                    st.dataframe(pd.DataFrame(st.session_state.history), use_container_width=True)
 
         time.sleep(interval * 60)
-        st.rerun() # Refresh the UI
+        st.rerun()
 else:
-    st.write("Enter a name and check the box in the sidebar to start.")
+    st.info("👈 Enter a model name and check the box in the sidebar to begin tracking.")
