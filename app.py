@@ -12,12 +12,14 @@ import pytz
 from streamlit_js_eval import streamlit_js_eval
 
 # Page Configuration
-st.set_page_config(page_title="Model Rank Tracker", layout="wide")
+st.set_page_config(page_title="Model Rank Tracker Pro", layout="wide")
 
-# Custom CSS for Bold Text
+# Custom CSS for high-visibility table
 st.markdown("""
     <style>
-    .stTable { font-size: 18px !important; font-weight: bold !important; }
+    table { width: 100% !important; font-family: sans-serif; border-collapse: collapse; }
+    th { background-color: #f0f2f6; color: #31333F; font-weight: bold; padding: 10px; text-align: left; }
+    td { padding: 10px; border-bottom: 1px solid #e6e9ef; font-size: 18px; font-weight: bold; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -33,26 +35,21 @@ if 'is_running' not in st.session_state:
 
 def find_rank_with_viewers(target_name, status_placeholder):
     target_name = target_name.lower().strip()
-    
     options = Options()
     options.add_argument("--headless=new")
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--disable-gpu")
-    options.add_argument("--remote-debugging-port=9222")
     options.add_argument("--blink-settings=imagesEnabled=false")
     options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
 
     driver = None
     try:
-        # Service path for Streamlit Cloud
         service = Service("/usr/bin/chromedriver")
         driver = webdriver.Chrome(service=service, options=options)
         driver.set_page_load_timeout(30)
-        
         driver.get("https://chaturbate.com/?page=1")
         
-        # Age Gate Bypass
         try:
             WebDriverWait(driver, 5).until(EC.element_to_be_clickable((By.ID, "close_entrance_terms"))).click()
         except:
@@ -60,9 +57,7 @@ def find_rank_with_viewers(target_name, status_placeholder):
 
         global_count = 0
         for page_num in range(1, 31):
-            if not st.session_state.is_running:
-                break
-                
+            if not st.session_state.is_running: break
             if page_num % 5 == 0 or page_num == 1:
                 status_placeholder.info(f"Scanning Page {page_num} for {target_name.upper()}")
             
@@ -78,31 +73,19 @@ def find_rank_with_viewers(target_name, status_placeholder):
                     if user_tag.text.lower().strip() == target_name:
                         raw_viewers = card.find_element(By.CLASS_NAME, "viewers").text.lower()
                         v_count = int(float(raw_viewers.replace('k', '')) * 1000) if 'k' in raw_viewers else int(''.join(filter(str.isdigit, raw_viewers)))
-                        
-                        return {
-                            "found": True, 
-                            "page": page_num, 
-                            "pos": index + 1, 
-                            "rank": global_count + index + 1, 
-                            "viewers": v_count,
-                            "utc_now": datetime.now(pytz.utc)
-                        }
+                        return {"found": True, "page": page_num, "pos": index+1, "rank": global_count+index+1, "viewers": v_count, "utc": datetime.now(pytz.utc)}
                 except:
                     continue 
             global_count += len(room_cards)
-            
     except Exception as e:
         return {"found": False, "error": str(e)}
     finally:
-        if driver:
-            driver.quit()
+        if driver: driver.quit()
     return {"found": False}
 
-# Sidebar UI
+# Sidebar
 with st.sidebar:
     st.header("SETTINGS")
-    st.write(f"Timezone: {browser_tz_name if browser_tz_name else 'Detecting...'}")
-    
     target_input = st.text_input("Model Name", placeholder="sara_smoke")
     interval_input = st.number_input("Interval Minutes", min_value=1, value=5)
     
@@ -114,45 +97,53 @@ with st.sidebar:
         st.session_state.history = []
         st.rerun()
 
-# Main Dashboard
+# Main UI
 st.title("SEARCH AND RANK MODEL")
-
 status_area = st.empty()
 log_area = st.empty()
 
 if st.session_state.is_running and target_input:
     while st.session_state.is_running:
         local_now = datetime.now(user_tz).strftime("%H:%M:%S")
-        status_area.info(f"Searching for {target_input.upper()}... Local Time: {local_now}")
+        status_area.info(f"Searching for {target_input.upper()}... Time: {local_now}")
         
         result = find_rank_with_viewers(target_input, status_area)
         finish_time = datetime.now(user_tz).strftime("%H:%M:%S")
         
         if result.get("found"):
+            current_rank = result['rank']
+            trend_html = '<span style="color: #888888;">▬</span>' # Default
+            
+            if len(st.session_state.history) > 0:
+                prev_rank = st.session_state.history[0]["RAW_RANK"]
+                if current_rank < prev_rank:
+                    trend_html = '<span style="color: #00cc66; font-size: 24px;">▲</span>' # Rank Improved
+                elif current_rank > prev_rank:
+                    trend_html = '<span style="color: #ff4d4d; font-size: 24px;">▼</span>' # Rank Dropped
+
             entry = {
-                "TIME": f"**{finish_time}**",
-                "OVERALL RANK": f"**#{result['rank']}**", 
-                "VIEWERS": f"**{result['viewers']:,}**", 
-                "LOCATION": f"**Page {result['page']}, Position {result['pos']}**"
+                "TIME": finish_time,
+                "TREND": trend_html,
+                "OVERALL RANK": f"#{current_rank}",
+                "VIEWERS": f"{result['viewers']:,}",
+                "LOCATION": f"Page {result['page']}, Position {result['pos']}",
+                "RAW_RANK": current_rank
             }
             st.session_state.history.insert(0, entry)
-            status_area.success(f"FOUND: {target_input.upper()} at Position {result['pos']} Page {result['page']} Overall Rank {result['rank']}")
+            status_area.success(f"FOUND: {target_input.upper()} RANK {current_rank}")
         else:
             status_area.warning(f"NOT FOUND: {target_input.upper()} at {finish_time}")
-            if "error" in result:
-                st.error(f"Error Log: {result['error']}")
 
         if st.session_state.history:
-            df = pd.DataFrame(st.session_state.history)
+            df = pd.DataFrame(st.session_state.history).drop(columns=['RAW_RANK'])
             with log_area.container():
                 st.subheader(f"HISTORY LOG ({browser_tz_name})")
-                st.table(df)
+                # Using to_html to render the colored arrows correctly
+                st.write(df.to_html(escape=False, index=False), unsafe_allow_html=True)
         
-        # Countdown loop to keep session active
         for i in range(interval_input * 60, 0, -1):
-            if not st.session_state.is_running:
-                break
+            if not st.session_state.is_running: break
             status_area.info(f"Next check in {i} seconds for {target_input.upper()}")
             time.sleep(1)
 else:
-    st.info("Enter a name and click Start Tracking to begin.")
+    st.info("Enter a name and click Start Tracking.")
