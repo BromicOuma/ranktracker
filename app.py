@@ -13,7 +13,7 @@ import plotly.express as px
 from streamlit_js_eval import streamlit_js_eval
 
 # Page Configuration
-st.set_page_config(page_title="Rank Analytics Pro", layout="wide")
+st.set_page_config(page_title="Model Page Position & Rank", layout="wide")
 
 # Custom CSS for high-visibility
 st.markdown("""
@@ -83,7 +83,7 @@ with st.sidebar:
         st.rerun()
 
 # Main Dashboard
-st.title("📊 STRATEGIC RANK ANALYTICS")
+st.title("Model's Page Position and Rank")
 status_area = st.empty()
 metric_cols = st.columns(4)
 
