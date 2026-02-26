@@ -1,4 +1,5 @@
 streamlit
 selenium
 pandas
-plotly
+pytz
+streamlit-js-eval
