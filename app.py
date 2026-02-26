@@ -10,7 +10,13 @@ from datetime import datetime
 import pandas as pd
 import pytz
 from streamlit_js_eval import streamlit_js_eval
-
+st.markdown("""
+    <style>
+    .styles_viewerBadge__1yB5_, .viewerBadge_link__1S137, .viewerBadge_text__1JaDK {
+        display: none;
+    }
+    </style>
+""", unsafe_allow_html=True)
 # Page Configuration
 st.set_page_config(page_title="Model Rank Tracker", layout="wide")
 
@@ -147,10 +153,4 @@ if st.session_state.is_running and target_input:
 else:
     st.info("Enter a name and click Start Tracking.")
 
-st.markdown("""
-    <style>
-    .styles_viewerBadge__1yB5_, .viewerBadge_link__1S137, .viewerBadge_text__1JaDK {
-        display: none;
-    }
-    </style>
-""", unsafe_allow_html=True)
+
