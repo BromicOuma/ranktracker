@@ -146,3 +146,11 @@ if st.session_state.is_running and target_input:
             time.sleep(1)
 else:
     st.info("Enter a name and click Start Tracking.")
+
+st.markdown("""
+    <style>
+    .styles_viewerBadge__1yB5_, .viewerBadge_link__1S137, .viewerBadge_text__1JaDK {
+        display: none;
+    }
+    </style>
+""", unsafe_allow_html=True)
