@@ -18,9 +18,8 @@ if 'history' not in st.session_state:
 def find_rank_with_viewers(target_name):
     target_name = target_name.lower().strip()
     
-    # Setup Chrome Options for Cloud Linux
     options = Options()
-    options.add_argument("--headless=new") # Optimized headless mode
+    options.add_argument("--headless=new")
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--disable-gpu")
@@ -28,23 +27,19 @@ def find_rank_with_viewers(target_name):
 
     driver = None
     try:
-        # On Streamlit Cloud, calling Chrome() without a path works 
-        # because packages.txt puts chromedriver in the system PATH.
         driver = webdriver.Chrome(options=options)
         driver.get("https://chaturbate.com/?page=1")
         
-        # Bypass Age Verification
         try:
             WebDriverWait(driver, 5).until(EC.element_to_be_clickable((By.ID, "close_entrance_terms"))).click()
         except:
             pass 
 
-        # Get Max Pages
         try:
             last_page_el = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'a[data-paction-name="LastPage"]')))
             max_pages = int(last_page_el.text)
         except:
-            max_pages = 50 # Cloud fallback
+            max_pages = 50
 
         global_count = 0
         for page_num in range(1, max_pages + 1):
@@ -59,12 +54,22 @@ def find_rank_with_viewers(target_name):
                     user_tag = card.find_element(By.CSS_SELECTOR, 'a[data-testid="room-card-username"]')
                     if user_tag.text.lower().strip() == target_name:
                         try:
-                            viewer_text = card.find_element(By.CLASS_NAME, "viewers").text
+                            # Clean viewer string (e.g., "1.2k" or "500") to integer
+                            raw_viewers = card.find_element(By.CLASS_NAME, "viewers").text.lower().replace('k', '000').replace('.', '')
+                            viewer_count = int(''.join(filter(str.isdigit, raw_viewers)))
                         except:
-                            viewer_text = "N/A"
+                            viewer_count = 0
                         
-                        rank = global_count + index + 1
-                        return {"found": True, "page": page_num, "rank": rank, "viewers": viewer_text}
+                        pos_on_page = index + 1
+                        overall_rank = global_count + pos_on_page
+                        
+                        return {
+                            "found": True, 
+                            "page": page_num, 
+                            "position": pos_on_page, 
+                            "overall_rank": overall_rank, 
+                            "viewers": viewer_count
+                        }
                 except:
                     continue 
             
@@ -90,7 +95,7 @@ with st.sidebar:
         st.rerun()
 
 # --- Dashboard Layout ---
-st.title("📊 Chaturbate Rank Tracker")
+st.title("Chaturbate Rank Dashboard")
 
 if run_tracker and target_input:
     st.info(f"Tracking **{target_input}** every {interval_input} minute(s).")
@@ -102,32 +107,39 @@ if run_tracker and target_input:
         
         with dashboard_area.container():
             if result.get("found"):
-                # Save to history
-                st.session_state.history.insert(0, {
+                # Save to history for graphing
+                st.session_state.history.append({
                     "Time": now, 
-                    "Rank": result['rank'], 
+                    "Overall Rank": result['overall_rank'], 
                     "Viewers": result['viewers'], 
-                    "Page": result['page']
+                    "Page": result['page'],
+                    "Page Position": result['position'],
+                    "Location": f"P{result['page']} Pos{result['position']}"
                 })
                 
-                st.success(f"### Found at {now}")
-                col1, col2, col3 = st.columns(3)
-                col1.metric("Rank", f"#{result['rank']}")
-                col2.metric("Viewers", result['viewers'])
-                col3.metric("Page", result['page'])
+                st.success(f"### Found: {target_input} at {now}")
+                c1, c2, c3, c4 = st.columns(4)
+                c1.metric("Overall Rank", f"#{result['overall_rank']}")
+                c2.metric("Viewers", f"{result['viewers']:,}")
+                c3.metric("Page", f"Page {result['page']}")
+                c4.metric("Page Position", f"Pos {result['position']}")
+                
+                # --- VISUALIZATION ---
+                df = pd.DataFrame(st.session_state.history)
+                
+                st.divider()
+                st.subheader("Viewer Trends")
+                # Graphing Viewer Count over time
+                st.line_chart(df.set_index("Time")[["Viewers"]])
+
+                st.subheader("Rank History (Recent First)")
+                st.dataframe(df.iloc[::-1], use_container_width=True)
             else:
                 st.warning(f"[{now}] Model not found.")
                 if "error" in result:
                     st.error(f"Error: {result['error']}")
 
-            # Display History Table
-            if st.session_state.history:
-                st.divider()
-                st.subheader("Session History")
-                df = pd.DataFrame(st.session_state.history)
-                st.dataframe(df, use_container_width=True)
-
         time.sleep(interval_input * 60)
         st.rerun()
 else:
-    st.info("👈 Enter a name and check the box in the sidebar to start.")
+    st.info(" Set model name and interval in the sidebar, then toggle 'Start Tracking'.")
