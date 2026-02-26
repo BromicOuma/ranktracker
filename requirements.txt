@@ -3,3 +3,4 @@ selenium
 pandas
 pytz
 streamlit-js-eval
+plotly
