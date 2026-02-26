@@ -11,13 +11,18 @@ import pytz
 from streamlit_js_eval import streamlit_js_eval
 
 # 1. Page Configuration
-st.set_page_config(page_title="Global Rank Tracker", layout="wide", page_icon="🌎")
+st.set_page_config(page_title="Model Rank Tracker", layout="wide", page_icon="📝")
+
+# Custom CSS to make the success message and headers BOLD and BIG
+st.markdown("""
+    <style>
+    .big-font { font-size:24px !important; font-weight: bold; }
+    .stAlert { border: 2px solid #00cc96; }
+    </style>
+    """, unsafe_allow_html=True)
 
 # --- AUTO-TIMEZONE DETECTION ---
-# This small piece of JS tells us the user's specific timezone (e.g., 'Europe/Berlin')
 browser_tz_name = streamlit_js_eval(js_expressions="Intl.DateTimeFormat().resolvedOptions().timeZone", key="tz_eval")
-
-# Default to UTC if detection is still loading or fails
 user_tz = pytz.timezone(browser_tz_name) if browser_tz_name else pytz.utc
 
 # Initialize tracking history
@@ -26,7 +31,6 @@ if 'history' not in st.session_state:
 
 def find_rank_with_viewers(target_name):
     target_name = target_name.lower().strip()
-    
     options = Options()
     options.add_argument("--headless=new")
     options.add_argument("--no-sandbox")
@@ -38,15 +42,12 @@ def find_rank_with_viewers(target_name):
     try:
         driver = webdriver.Chrome(options=options)
         driver.get("https://chaturbate.com/?page=1")
-        
-        # Bypass Age Verification
         try:
             WebDriverWait(driver, 5).until(EC.element_to_be_clickable((By.ID, "close_entrance_terms"))).click()
         except:
             pass 
 
         global_count = 0
-        # Check up to 50 pages
         for page_num in range(1, 51):
             if page_num > 1:
                 driver.get(f"https://chaturbate.com/?page={page_num}")
@@ -73,40 +74,31 @@ def find_rank_with_viewers(target_name):
                             "pos": index + 1, 
                             "rank": global_count + index + 1, 
                             "viewers": viewer_count,
-                            "utc_now": datetime.now(pytz.utc) # Save in UTC
+                            "utc_now": datetime.now(pytz.utc)
                         }
                 except:
                     continue 
-            
             global_count += len(room_cards)
-            
     except Exception as e:
         return {"found": False, "error": str(e)}
     finally:
-        if driver:
-            driver.quit()
-    
+        if driver: driver.quit()
     return {"found": False}
 
 # --- Sidebar ---
 with st.sidebar:
-    st.header("Global Tracking")
-    st.write(f"**Detected Timezone:** `{browser_tz_name if browser_tz_name else 'Detecting...'}`")
-    
-    st.divider()
+    st.header("⚙️ **SETTINGS**")
+    st.write(f"🌐 Timezone: **{browser_tz_name if browser_tz_name else 'Detecting...'}**")
     target_input = st.text_input("Model Name:", placeholder="e.g. sara_smoke")
     interval_input = st.number_input("Interval (Minutes):", min_value=1, value=5)
     
-    col1, col2 = st.columns(2)
-    with col1:
-        start_tracking = st.button("Start Tracking")
-    with col2:
-        if st.button("Clear History"):
-            st.session_state.history = []
-            st.rerun()
+    start_tracking = st.button("🚀 **START TRACKING**")
+    if st.button("🗑️ **CLEAR HISTORY**"):
+        st.session_state.history = []
+        st.rerun()
 
 # --- Main Dashboard ---
-st.title(" Live Rank Monitor")
+st.title("🔍 **SEARCH & RANK MODEL**")
 
 status_area = st.empty()
 log_area = st.empty()
@@ -115,38 +107,34 @@ if start_tracking and target_input:
     st.session_state.is_running = True
     
     while st.session_state.get('is_running', True):
-        # Calculate local time for the status bar
         current_local = datetime.now(user_tz).strftime("%H:%M:%S")
-        status_area.info(f"Searching for **{target_input}**... (Current Local Time: {current_local})")
+        status_area.info(f"🔎 **Currently searching for {target_input.upper()}...** (Local Time: {current_local})")
         
         result = find_rank_with_viewers(target_input)
         
         if result.get("found"):
-            # Store data with UTC timestamp
+            # Update History Data
             entry = {
-                "UTC_Time": result['utc_now'],
-                "Overall Rank": f"#{result['rank']}", 
-                "Viewers": f"{result['viewers']:,}", 
-                "Location": f"Page {result['page']}, Pos {result['pos']}"
+                "TIME": f"**{datetime.now(user_tz).strftime('%H:%M:%S')}**",
+                "OVERALL RANK": f"**#{result['rank']}**", 
+                "VIEWERS": f"**{result['viewers']:,}**", 
+                "LOCATION": f"**Page {result['page']}, Pos {result['pos']}**"
             }
             st.session_state.history.insert(0, entry)
-            status_area.success(f"{target_input} at Position {result['pos']} Page {result['page']} (Overall Rank: #{result['rank']})")
+            
+            # --- BOLD & BIG SUCCESS MESSAGE ---
+            status_area.success(f"### ✅ **{target_input.upper()} FOUND!** \n\n **POSITION {result['pos']} | PAGE {result['page']} | OVERALL RANK: #{result['rank']}**")
         else:
-            status_area.warning(f"[{datetime.now(user_tz).strftime('%H:%M:%S')}] Model not found.")
-            if "error" in result:
-                st.error(f"Error: {result['error']}")
+            status_area.warning(f"⚠️ **[{current_local}] {target_input.upper()} NOT FOUND.** Retrying in {interval_input} min.")
 
         # Render Log Table
         if st.session_state.history:
             df = pd.DataFrame(st.session_state.history)
-            
-            # Key feature: Convert UTC to the user's specific browser time on the fly
-            df['Local Time'] = df['UTC_Time'].apply(lambda x: x.astimezone(user_tz).strftime("%H:%M:%S"))
-            
             with log_area.container():
-                st.subheader(f"History Log")
-                st.table(df[['Local Time', 'Overall Rank', 'Viewers', 'Location']])
+                st.markdown(f"### 📊 **HISTORY LOG ({browser_tz_name})**")
+                # Using st.table for a clean, bold look
+                st.table(df)
         
         time.sleep(interval_input * 60)
 else:
-    st.info(" Enter a model name and click 'Start Tracking' to begin. Your local timezone will be detected automatically.")
+    st.info("👈 **Enter a name and click 'Start Tracking' in the sidebar.**")
