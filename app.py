@@ -130,7 +130,7 @@ if start_tracking and target_input:
                 "Location": f"Page {result['page']}, Pos {result['pos']}"
             }
             st.session_state.history.insert(0, entry)
-            status_area.success(f" {target_input} at positon {Location.result['pos']} page {Location.{result['page']}}" overall rank is {result['rank'] )
+            status_area.success(f"{target_input} at Position {result['pos']} Page {result['page']} (Overall Rank: #{result['rank']})")
         else:
             status_area.warning(f"[{datetime.now(user_tz).strftime('%H:%M:%S')}] Model not found.")
             if "error" in result:
