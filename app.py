@@ -10,6 +10,7 @@ from datetime import datetime
 import pandas as pd
 import pytz
 from streamlit_js_eval import streamlit_js_eval
+import plotly.express as px # Added for visualization
 
 # Page Configuration
 st.set_page_config(page_title="Model Rank Tracker", layout="wide")
@@ -100,6 +101,7 @@ with st.sidebar:
 # Main UI
 st.title("SEARCH AND RANK MODEL")
 status_area = st.empty()
+graph_area = st.container() # Container for the chart
 log_area = st.empty()
 
 if st.session_state.is_running and target_input:
@@ -134,11 +136,45 @@ if st.session_state.is_running and target_input:
             status_area.warning(f"NOT FOUND: {target_input.upper()} at {finish_time}")
 
         if st.session_state.history:
-            df = pd.DataFrame(st.session_state.history).drop(columns=['RAW_RANK'])
+            # Prepare Data for Dashboard
+            df_full = pd.DataFrame(st.session_state.history)
+            
+            # --- NEW DASHBOARD SECTION ---
+            with graph_area:
+                st.subheader(f"VISUAL TREND ANALYSIS: {target_input.upper()}")
+                
+                # We want chronological order for the graph (history is currently reversed)
+                chart_df = df_full.iloc[::-1].copy()
+                
+                fig = px.scatter(
+                    chart_df, 
+                    x="TIME", 
+                    y="RAW_RANK", 
+                    trendline="ols",
+                    title="Rank Over Time (Lower is Better)",
+                    labels={"RAW_RANK": "Global Rank", "TIME": "Scan Time"},
+                    color_discrete_sequence=["#00cc66"]
+                )
+                
+                # Invert Y axis because Rank 1 is better than Rank 100
+                fig.update_yaxes(autorange="reversed")
+                fig.update_layout(template="plotly_dark", height=400)
+                st.plotly_chart(fig, use_container_width=True)
+
+                st.markdown(f"""
+                **Description:** This dashboard tracks the real-time visibility of **{target_input}**. 
+                The scatter plot illustrates each individual scan result, while the trendline provides a 
+                mathematical estimation of whether the model is gaining traction (moving towards Rank 1) 
+                or losing visibility. An upward-sloping trendline on this inverted scale indicates 
+                improving performance.
+                """)
+                st.divider()
+            # -----------------------------
+
+            df_display = df_full.drop(columns=['RAW_RANK'])
             with log_area.container():
                 st.subheader(f"HISTORY LOG ({browser_tz_name})")
-                # Using to_html to render the colored arrows correctly
-                st.write(df.to_html(escape=False, index=False), unsafe_allow_html=True)
+                st.write(df_display.to_html(escape=False, index=False), unsafe_allow_html=True)
         
         for i in range(interval_input * 60, 0, -1):
             if not st.session_state.is_running: break
