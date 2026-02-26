@@ -1,4 +1,4 @@
-import streamlit as st
+trendimport streamlit as st
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
@@ -126,7 +126,7 @@ if st.session_state.is_running and target_input:
                 "TREND": trend_html,
                 "OVERALL RANK": f"#{current_rank}",
                 "VIEWERS": f"{result['viewers']:,}",
-                "LOCATION": f"Page {result['page']}, Position {result['pos']}",
+                "LOCATION": f"Page {result['page']}, Position {result['pos']}" trend_html,
                 "RAW_RANK": current_rank
             }
             st.session_state.history.insert(0, entry)
