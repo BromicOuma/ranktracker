@@ -147,14 +147,14 @@ if st.session_state.is_running and target_input:
         if st.session_state.history:
             df = pd.DataFrame(st.session_state.history)
             with log_area.container():
-                st.markdown(f"### 📊 **BOLD HISTORY LOG ({browser_tz_name})**")
+                st.markdown(f"###  **BOLD HISTORY LOG ({browser_tz_name})**")
                 st.table(df)
         
         # Countdown to next check (Keeps the UI alive)
         for i in range(interval_input * 60, 0, -1):
             if not st.session_state.is_running:
                 break
-            status_area.info(f"⏱️ **Next check in {i} seconds...** (Searching for: {target_input.upper()})")
+            status_area.info(f" **Next check in {i} seconds...** (Searching for: {target_input.upper()})")
             time.sleep(1)
 else:
-    st.info("👈 **Enter a model name and click 'Start Tracking' to begin.**")
+    st.info("  **Enter a model name and click 'Start Tracking' to begin.**")
