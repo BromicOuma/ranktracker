@@ -1,6 +1,5 @@
 import streamlit as st
 from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -9,13 +8,10 @@ import time
 from datetime import datetime
 import pandas as pd
 
-# Page Setup
-st.set_page_config(page_title="Model Rank Tracker", layout="wide")
+# 1. Page Configuration
+st.set_page_config(page_title="Model Tracker Pro", layout="wide", page_icon="📊")
 
-st.title("📊 Model Rank & Viewer Tracker")
-st.markdown("This tool scans pages to find a specific model's rank and viewer count.")
-
-# Initialize History in session state
+# Initialize tracking history
 if 'history' not in st.session_state:
     st.session_state.history = []
 
@@ -23,19 +19,18 @@ def find_rank_with_viewers(target_name):
     target_name = target_name.lower().strip()
     
     # Setup Chrome Options for Cloud Linux
-    chrome_options = Options()
-    chrome_options.add_argument("--headless")
-    chrome_options.add_argument("--no-sandbox")
-    chrome_options.add_argument("--disable-dev-shm-usage")
-    chrome_options.add_argument("--disable-gpu")
-    chrome_options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
-    
-    # Paths for Debian Bookworm (Streamlit Cloud)
-    chrome_options.binary_location = "/usr/bin/chromium"
-    service = Service("/usr/bin/chromedriver")
+    options = Options()
+    options.add_argument("--headless=new") # Optimized headless mode
+    options.add_argument("--no-sandbox")
+    options.add_argument("--disable-dev-shm-usage")
+    options.add_argument("--disable-gpu")
+    options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
 
+    driver = None
     try:
-        driver = webdriver.Chrome(service=service, options=chrome_options)
+        # On Streamlit Cloud, calling Chrome() without a path works 
+        # because packages.txt puts chromedriver in the system PATH.
+        driver = webdriver.Chrome(options=options)
         driver.get("https://chaturbate.com/?page=1")
         
         # Bypass Age Verification
@@ -44,19 +39,18 @@ def find_rank_with_viewers(target_name):
         except:
             pass 
 
-        # Get Dynamic Max Pages
+        # Get Max Pages
         try:
             last_page_el = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'a[data-paction-name="LastPage"]')))
             max_pages = int(last_page_el.text)
         except:
-            max_pages = 60 
+            max_pages = 50 # Cloud fallback
 
         global_count = 0
         for page_num in range(1, max_pages + 1):
             if page_num > 1:
                 driver.get(f"https://chaturbate.com/?page={page_num}")
             
-            # Wait for content
             WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'li.roomCard')))
             room_cards = driver.find_elements(By.CSS_SELECTOR, 'li.roomCard')
 
@@ -70,63 +64,70 @@ def find_rank_with_viewers(target_name):
                             viewer_text = "N/A"
                         
                         rank = global_count + index + 1
-                        driver.quit()
                         return {"found": True, "page": page_num, "rank": rank, "viewers": viewer_text}
                 except:
                     continue 
             
             global_count += len(room_cards)
             
-        driver.quit()
     except Exception as e:
-        if 'driver' in locals(): driver.quit()
         return {"found": False, "error": str(e)}
+    finally:
+        if driver:
+            driver.quit()
     
     return {"found": False}
 
 # --- Sidebar ---
 with st.sidebar:
     st.header("Search Settings")
-    target = st.text_input("Enter Model Name:", placeholder="e.g. sara_smoke")
-    interval = st.number_input("Check Interval (Minutes):", min_value=1, value=5)
+    target_input = st.text_input("Model Name:", placeholder="e.g. sara_smoke")
+    interval_input = st.number_input("Check Interval (Minutes):", min_value=1, value=5)
     run_tracker = st.checkbox("Start Tracking")
     
     if st.button("Clear History"):
         st.session_state.history = []
         st.rerun()
 
-# --- Main Dashboard ---
-if run_tracker and target:
-    st.info(f"Checking for **{target}** every {interval} minute(s).")
-    dashboard_placeholder = st.empty()
+# --- Dashboard Layout ---
+st.title("📊 Chaturbate Rank Tracker")
+
+if run_tracker and target_input:
+    st.info(f"Tracking **{target_input}** every {interval_input} minute(s).")
+    dashboard_area = st.empty()
     
     while run_tracker:
-        result = find_rank_with_viewers(target)
+        result = find_rank_with_viewers(target_input)
         now = datetime.now().strftime("%H:%M:%S")
         
-        if result.get("found"):
-            # Log result
-            entry = {"Time": now, "Rank": result['rank'], "Viewers": result['viewers'], "Page": result['page']}
-            st.session_state.history.insert(0, entry)
-            
-            with dashboard_placeholder.container():
-                st.success(f"### Update: {now}")
-                col1, col2, col3 = st.columns(3)
-                col1.metric("Current Rank", f"#{result['rank']}")
-                col2.metric("Viewers", result['viewers'])
-                col3.metric("Page Location", result['page'])
+        with dashboard_area.container():
+            if result.get("found"):
+                # Save to history
+                st.session_state.history.insert(0, {
+                    "Time": now, 
+                    "Rank": result['rank'], 
+                    "Viewers": result['viewers'], 
+                    "Page": result['page']
+                })
                 
-                st.subheader("Recent Activity Log")
-                st.dataframe(pd.DataFrame(st.session_state.history), use_container_width=True)
-        else:
-            with dashboard_placeholder.container():
+                st.success(f"### Found at {now}")
+                col1, col2, col3 = st.columns(3)
+                col1.metric("Rank", f"#{result['rank']}")
+                col2.metric("Viewers", result['viewers'])
+                col3.metric("Page", result['page'])
+            else:
                 st.warning(f"[{now}] Model not found.")
                 if "error" in result:
-                    st.error(f"System Error: {result['error']}")
-                if st.session_state.history:
-                    st.dataframe(pd.DataFrame(st.session_state.history), use_container_width=True)
+                    st.error(f"Error: {result['error']}")
 
-        time.sleep(interval * 60)
+            # Display History Table
+            if st.session_state.history:
+                st.divider()
+                st.subheader("Session History")
+                df = pd.DataFrame(st.session_state.history)
+                st.dataframe(df, use_container_width=True)
+
+        time.sleep(interval_input * 60)
         st.rerun()
 else:
-    st.info("👈 Enter a model name and check the box in the sidebar to begin tracking.")
+    st.info("👈 Enter a name and check the box in the sidebar to start.")
