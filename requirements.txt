@@ -4,3 +4,4 @@ pandas
 pytz
 streamlit-js-eval
 plotly
+statsmodels
