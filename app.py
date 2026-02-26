@@ -99,7 +99,7 @@ with st.sidebar:
         st.rerun()
 
 # --- Main Dashboard ---
-st.title("📝 Model History Log")
+st.title("SEARCH &  RANK MODEL")
 
 # Create two specific areas that we can update without refreshing the whole page
 status_area = st.empty()
@@ -115,7 +115,7 @@ if run_tracker:
             now = datetime.now().strftime("%H:%M:%S")
             
             # 1. Update status to 'Searching'
-            status_area.info(f"🔎 Currently searching for **{target_input}**... (Last check: {now})")
+            status_area.info(f" Currently searching for **{target_input}**... (Last check: {now})")
             
             result = find_rank_with_viewers(target_input)
             
@@ -130,9 +130,9 @@ if run_tracker:
                 }
                 st.session_state.history.insert(0, entry) # Most recent at top
                 
-                status_area.success(f"✅ Last Found: {target_input} at {now} (Rank #{result['overall_rank']})")
+                status_area.success(f"Last Found: {target_input} at {now} (Rank #{result['overall_rank']})")
             else:
-                status_area.warning(f"⚠️ [{now}] Model not found. Will retry in {interval_input} min.")
+                status_area.warning(f"[{now}] Model not found. Will retry in {interval_input} min.")
                 if "error" in result:
                     st.error(f"Technical Error: {result['error']}")
 
@@ -146,7 +146,7 @@ if run_tracker:
             time.sleep(interval_input * 60)
 
 elif not st.session_state.history:
-    st.info("👈 Enter a name and click 'Start Tracking' to begin recording data.")
+    st.info("Enter a name on the left and click 'Start Tracking' to begin recording data.")
 else:
     # If the tracker isn't running but we have history, keep showing the log
     with log_area.container():
