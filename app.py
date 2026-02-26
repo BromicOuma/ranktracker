@@ -12,7 +12,7 @@ import pytz
 from streamlit_js_eval import streamlit_js_eval
 
 # 1. Page Configuration
-st.set_page_config(page_title="Model Rank Tracker Pro", layout="wide", page_icon="📊")
+st.set_page_config(page_title="Model Rank Tracker Pro", layout="wide")
 
 # Custom CSS for Bold UI
 st.markdown("""
@@ -59,13 +59,13 @@ def find_rank_with_viewers(target_name, status_placeholder):
             pass 
 
         global_count = 0
-        # Check up to 30 pages for stability
-        for page_num in range(1, 31):
+        # Check up to 100 pages for stability
+        for page_num in range(1, 100):
             if not st.session_state.is_running:
                 break
                 
             if page_num % 5 == 0:
-                status_placeholder.info(f"🔎 **Scanning Page {page_num}...** (Current User: {target_name.upper()})")
+                status_placeholder.info(f"**Scanning Page {page_num}...** (Current User: {target_name.upper()})")
             
             if page_num > 1:
                 driver.get(f"https://chaturbate.com/?page={page_num}")
@@ -101,22 +101,22 @@ def find_rank_with_viewers(target_name, status_placeholder):
 
 # --- Sidebar ---
 with st.sidebar:
-    st.header("⚙️ **SETTINGS**")
-    st.write(f"🌍 Detected Timezone: **{browser_tz_name if browser_tz_name else 'Detecting...'}**")
+    st.header(" **SETTINGS**")
+    st.write(f" Detected Timezone: **{browser_tz_name if browser_tz_name else 'Detecting...'}**")
     
     target_input = st.text_input("Model Name:", placeholder="e.g. sara_smoke")
     interval_input = st.number_input("Interval (Minutes):", min_value=1, value=5)
     
-    if st.button("🚀 **START TRACKING**"):
+    if st.button(" **START TRACKING**"):
         st.session_state.is_running = True
     
-    if st.button("🛑 **STOP & CLEAR**"):
+    if st.button(" **STOP & CLEAR**"):
         st.session_state.is_running = False
         st.session_state.history = []
         st.rerun()
 
 # --- Dashboard ---
-st.title("🔍 **SEARCH & RANK MODEL**")
+st.title(" **SEARCH & RANK MODEL**")
 
 status_area = st.empty()
 log_area = st.empty()
@@ -124,7 +124,7 @@ log_area = st.empty()
 if st.session_state.is_running and target_input:
     while st.session_state.is_running:
         local_now = datetime.now(user_tz).strftime("%H:%M:%S")
-        status_area.info(f"🔎 **Initiating Search for {target_input.upper()}...** (Local Time: {local_now})")
+        status_area.info(f" **Initiating Search for {target_input.upper()}...** (Local Time: {local_now})")
         
         result = find_rank_with_viewers(target_input, status_area)
         
@@ -138,9 +138,9 @@ if st.session_state.is_running and target_input:
                 "LOCATION": f"**Page {result['page']}, Pos {result['pos']}**"
             }
             st.session_state.history.insert(0, entry)
-            status_area.success(f"### ✅ **{target_input.upper()} FOUND!** \n\n **POSITION {result['pos']} | PAGE {result['page']} | RANK: #{result['rank']}**")
+            status_area.success(f"###  **{target_input.upper()} FOUND!** \n\n **POSITION {result['pos']} | PAGE {result['page']} | RANK: #{result['rank']}**")
         else:
-            status_area.warning(f"⚠️ **[{finish_time}] {target_input.upper()} NOT FOUND.**")
+            status_area.warning(f" **[{finish_time}] {target_input.upper()} NOT FOUND.**")
             if "error" in result:
                 st.error(f"Browser Trace: {result['error']}")
 
