@@ -124,6 +124,7 @@ if st.session_state.is_running and target_input:
             with metric_cols[0]: st.metric("Current Rank", f"#{current_rank}", delta_color="inverse")
             with metric_cols[1]: st.metric("Viewers", f"{current_viewers:,}")
             with metric_cols[2]: st.metric("Peak Rank Today", f"#{min([x['RAW_RANK'] for x in st.session_state.history])}")
+            with metric_cols[2]: st.metric("Change", f"{trend_html}")
             
             if len(st.session_state.history) > 2:
                 df_temp = pd.DataFrame(st.session_state.history)
