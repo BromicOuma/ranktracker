@@ -50,7 +50,7 @@ def find_rank_with_viewers(target_name, status_placeholder):
     try:
         service = Service("/usr/bin/chromedriver")
         driver = webdriver.Chrome(service=service, options=options)
-        driver.set_page_load_timeout(30)
+        driver.set_page_load_timeout(300)
         driver.get("https://chaturbate.com/?page=1")
         
         try:
@@ -78,6 +78,7 @@ def find_rank_with_viewers(target_name, status_placeholder):
                         v_count = int(float(raw_viewers.replace('k', '')) * 1000) if 'k' in raw_viewers else int(''.join(filter(str.isdigit, raw_viewers)))
                         return {"found": True, "page": page_num, "pos": index+1, "rank": global_count+index+1, "viewers": v_count, "utc": datetime.now(pytz.utc)}
                 except:
+                    print("failed")
                     continue 
             global_count += len(room_cards)
     except Exception as e:
